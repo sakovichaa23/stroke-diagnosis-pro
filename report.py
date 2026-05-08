@@ -1,5 +1,3 @@
-# Генерация PDF-отчётов, построение диагностических диаграмм, сохранение истории в CSV
-
 import os
 import pandas as pd
 import cv2
@@ -8,42 +6,54 @@ import io
 from PIL import Image
 from fpdf import FPDF
 from fpdf.enums import XPos, YPos
-from config import FONT_PATH, IMPORTANT_DICOM_TAGS, DB_PATH, COLUMNS, MAX_HISTORY
+from config import FONT_PATH
+from huggingface_hub import InferenceClient
+import re
 
-# ---------- Работа с историей (CSV) ----------
-history_list = []
+HF_TOKEN = os.environ.get("HF_TOKEN", None)
 
-def load_database():
-    global history_list
-    if os.path.exists(DB_PATH):
-        try:
-            df = pd.read_csv(DB_PATH)
-            if len(df.columns) == len(COLUMNS):
-                df['ID'] = pd.to_numeric(df['ID'])
-                history_list = df.values.tolist()
-                return history_list
-        except:
-            pass
-    history_list = []
-    return history_list
+def get_ai_recommendations(verdict, hu_info, side_ru, area_percent):
+    if not HF_TOKEN:
+        if verdict == "НОРМА":
+            return "Плановое наблюдение у невролога. Контроль артериального давления. МРТ при появлении симптомов."
+        else:
+            return f"Госпитализация в неврологическое отделение. Контроль АД каждый час. КТ-ангиография. Повторное КТ через 24 часа. Отмена антиагрегантов."
+    
+    try:
+        client = InferenceClient(model="meta-llama/Meta-Llama-3-8B-Instruct", token=HF_TOKEN)
+        
+        if verdict == "НОРМА":
+            prompt = f"""Напиши 4-5 коротких предложений (до 150 слов) рекомендаций для пациента с нормальной КТ. Без вступлений. Только конкретные действия. На русском."""
+        else:
+            prompt = f"""Напиши 4-5 коротких предложений (до 150 слов) конкретных медицинских действий. Данные: {verdict}, {hu_info}, {side_ru}, площадь {area_percent}. Пиши действия: 'Госпитализировать...', 'Назначить...', 'Провести...', 'Контролировать...'. Без вступлений. На русском."""
 
-def save_history(record):
-    global history_list
-    history_list.insert(0, record)
-    if len(history_list) > MAX_HISTORY:
-        history_list = history_list[:MAX_HISTORY]
-    df_history = pd.DataFrame(history_list, columns=COLUMNS)
-    df_history.to_csv(DB_PATH, index=False)
+        messages = [{"role": "user", "content": prompt}]
+        response = client.chat_completion(messages=messages, max_tokens=250)
+        text = response.choices[0].message.content.strip()
+        
+        text = re.sub(r'^[\s•\-*\d+\.]+', '', text)
+        text = re.sub(r'Я рекомендую|Рекомендую|я рекомендую|Учитывая|Кроме того|Для этого|Необходимо|Следует', '', text)
+        text = ' '.join(text.split())
+        
+        if not text.endswith('.'):
+            text += '.'
+        
+        if len(text) > 500:
+            text = text[:500]
+            last_space = text.rfind(' ')
+            if last_space > 450:
+                text = text[:last_space]
+            if not text.endswith('.'):
+                text += '.'
+        
+        return text
+    except Exception as e:
+        if verdict == "НОРМА":
+            return "Плановое наблюдение у невролога. Контроль артериального давления. МРТ при появлении симптомов."
+        else:
+            return f"Госпитализация в неврологическое отделение. Контроль АД каждый час. КТ-ангиография. Повторное КТ через 24 часа. Отмена антиагрегантов."
 
-# Загружаем историю при импорте
-load_database()
-
-# ---------- Генератор PDF-отчётов ----------
 def generate_report_universal(results_list, output_name="Diagnosis_Report.pdf", is_batch=False):
-    """
-    Создаёт PDF-отчёт для одного или нескольких исследований (раздел 2.4).
-    results_list: список словарей с ключами 'orig_img', 'res_img', 'info', 'meta'
-    """
     pdf = FPDF()
     has_font = os.path.exists(FONT_PATH)
     if has_font:
@@ -58,7 +68,9 @@ def generate_report_universal(results_list, output_name="Diagnosis_Report.pdf", 
         orig = item['orig_img']
         res = item['res_img']
         info = item['info']
-        meta = item.get('meta', {})
+        
+        filename = info['filename'].replace('.dcm', '')
+        
         pdf.add_page()
 
         if has_font:
@@ -66,7 +78,7 @@ def generate_report_universal(results_list, output_name="Diagnosis_Report.pdf", 
             pdf.cell(0, 15, "МЕДИЦИНСКИЙ ОТЧЕТ АНАЛИЗА КТ", align="C", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
             pdf.set_font("DejaVu", "", 10)
             if is_batch:
-                pdf.cell(0, 8, f"Файл #{idx+1}: {info['filename']}", align="C", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+                pdf.cell(0, 8, f"Файл: {info['filename']}", align="C", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
             else:
                 pdf.cell(0, 8, f"ID Пациента: {info['p_id']} | Файл: {info['filename']}", align="C", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
             pdf.cell(0, 8, f"Дата: {info['date']} | Время: {info['time']}", align="C", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
@@ -77,39 +89,45 @@ def generate_report_universal(results_list, output_name="Diagnosis_Report.pdf", 
 
             if info['verdict_ru'] == "ИНСУЛЬТ":
                 pdf.set_text_color(255, 0, 0)
-            pdf.cell(0, 8, f"- Заключение: {info['verdict_ru']}", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+            pdf.cell(0, 8, f"Заключение: {info['verdict_ru']}", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
             pdf.set_text_color(0, 0, 0)
-            pdf.cell(0, 8, f"- Плотность очага: {info.get('hu', 'Н/Д')}", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
-            pdf.cell(0, 8, f"- Локализация: {info['side_ru']}", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
-            pdf.cell(0, 8, f"- Площадь поражения: {info['area']}", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
-            pdf.cell(0, 8, f"- Скорость анализа: {info['speed']} мс", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
-            pdf.cell(0, 8, f"- Уверенность системы: {info['conf']}", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
-            pdf.cell(0, 8, f"- Модель: {info['model']}", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+            pdf.cell(0, 8, f"Плотность очага: {info.get('hu', 'Н/Д')}", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+            pdf.cell(0, 8, f"Локализация: {info['side_ru']}", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+            pdf.cell(0, 8, f"Площадь поражения: {info['area']}", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+            pdf.cell(0, 8, f"Скорость анализа: {info['speed']} мс", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+            pdf.cell(0, 8, f"Уверенность: {info['conf']}", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+            pdf.cell(0, 8, f"Модель: {info['model']}", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
 
-            if meta:
-                pdf.ln(5)
-                pdf.set_font("DejaVu", "B", 12)
-                pdf.cell(0, 10, "2. ТЕХНИЧЕСКИЕ ПАРАМЕТРЫ (DICOM):", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
-                pdf.set_font("DejaVu", "", 10)
-                for tag, desc in IMPORTANT_DICOM_TAGS.items():
-                    val = meta.get(tag, "Н/Д")
-                    pdf.cell(0, 6, f"• {desc}: {val}", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+            pdf.ln(8)
+            
+            area_val = info['area'].replace('%', '')
+            recommendations = get_ai_recommendations(info['verdict_ru'], info.get('hu', 'Н/Д'), info['side_ru'], area_val)
+            
+            pdf.set_font("DejaVu", "B", 12)
+            pdf.set_text_color(0, 0, 255)
+            pdf.cell(0, 10, "2. КЛИНИЧЕСКИЕ РЕКОМЕНДАЦИИ:", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+            pdf.set_font("DejaVu", "", 11)
+            pdf.set_text_color(0, 0, 0)
+            pdf.multi_cell(0, 6, recommendations, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
 
-        # Временные файлы для изображений
+            pdf.ln(5)
+
         temp_o = f"o_tmp_{idx}.jpg"
         temp_r = f"r_tmp_{idx}.jpg"
         cv2.imwrite(temp_o, cv2.cvtColor(orig, cv2.COLOR_RGB2BGR))
         cv2.imwrite(temp_r, cv2.cvtColor(res, cv2.COLOR_RGB2BGR))
-        img_y = 180 if meta else 140
-        pdf.image(temp_o, x=15, y=img_y, w=85)
-        pdf.image(temp_r, x=110, y=img_y, w=85)
+        
+        pdf.image(temp_o, x=15, y=pdf.get_y(), w=85)
+        pdf.image(temp_r, x=110, y=pdf.get_y(), w=85)
         os.remove(temp_o)
         os.remove(temp_r)
 
-        pdf.set_y(-30)
+        pdf.set_y(pdf.get_y() + 5)
         if has_font:
             pdf.set_font("DejaVu", "", 7)
+            pdf.set_text_color(100, 100, 100)
             pdf.multi_cell(0, 4, disclaimer, align="C")
+            pdf.set_text_color(0, 0, 0)
         else:
             pdf.set_font("Helvetica", "", 7)
             pdf.multi_cell(0, 4, "WARNING: AI Report. This is for informational purposes only.", align="C")
@@ -117,9 +135,7 @@ def generate_report_universal(results_list, output_name="Diagnosis_Report.pdf", 
     pdf.output(output_name)
     return output_name
 
-# ---------- Статистическая аналитика (графики) ----------
 def create_analytics(df):
-    """Строит три диагностические диаграммы (раздел 2.4)."""
     plt.close('all')
     fig, axes = plt.subplots(1, 3, figsize=(18, 5))
 
@@ -128,8 +144,9 @@ def create_analytics(df):
     axes[0].pie(verdict_counts, labels=verdict_counts.index, autopct='%1.1f%%', colors=colors_v)
     axes[0].set_title("Статус: Норма / Инсульт", fontsize=12, fontweight='bold')
 
-    areas = df[df['Вердикт'] == 'Инсульт']['Площадь_Ч'].astype(float)
-    if not areas.empty:
+    stroke_df = df[df['Вердикт'] == 'Инсульт']
+    if not stroke_df.empty:
+        areas = stroke_df['Площадь'].str.replace('%', '').astype(float)
         n, bins, patches = axes[1].hist(areas, bins=10, edgecolor='black')
         for i, patch in enumerate(patches):
             bin_center = (bins[i] + bins[i+1]) / 2
@@ -144,7 +161,6 @@ def create_analytics(df):
         axes[1].text(0.5, 0.5, 'Данных нет', ha='center')
     axes[1].set_title("Тяжесть: Площадь поражения (%)", fontsize=12, fontweight='bold')
 
-    stroke_df = df[df['Вердикт'] == 'Инсульт']
     if not stroke_df.empty:
         side_counts = stroke_df['Полушарие'].value_counts()
         short_labels = []
@@ -162,7 +178,7 @@ def create_analytics(df):
                     colors=['#2196F3', '#00BCD4', '#4CAF50'])
     else:
         axes[2].text(0.5, 0.5, 'Инсультов нет', ha='center')
-    axes[2].set_title("Локализация (полушарие и бассейн)", fontsize=12, fontweight='bold')
+    axes[2].set_title("Локализация", fontsize=12, fontweight='bold')
 
     buf = io.BytesIO()
     plt.tight_layout()
