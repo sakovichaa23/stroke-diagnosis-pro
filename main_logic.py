@@ -9,7 +9,7 @@ import pydicom
 import gradio as gr
 from config import DB_DICOM_PATH, COLUMNS
 from segmentation import load_selected_model, core_inference
-from dicom_preprocessing import dicom_to_rgb, extract_meta
+from dicom_preprocessing import dicom_to_rgb
 from diagnosis import get_hu_analysis, get_side_and_basin, calculate_area_percent, compute_confidence
 from report import generate_report_universal, create_analytics
 from database import save_history, get_history_dataframe, get_max_patient_id
@@ -69,9 +69,8 @@ def predict_stroke(file_path, model_key):
         'verdict_ru': status_ru, 'speed': speed_ms,
         'date': now_gr.strftime("%d.%m"), 'time': now_gr.strftime("%H:%M:%S")
     }
-    meta = extract_meta(ds)
 
-    pdf_path = generate_report_universal([{'orig_img': img_res, 'res_img': res_view, 'info': info, 'meta': meta}],
+    pdf_path = generate_report_universal([{'orig_img': img_res, 'res_img': res_view, 'info': info}],
                                          is_batch=False)
 
     record = [str(p_id), filename, info['date'], info['time'], info['model'],
@@ -152,7 +151,6 @@ def process_batch(files, model_key):
         res_view = overlay_mask_on_image(img_res, mask)
 
         now = datetime.now(pytz.timezone('Europe/Minsk'))
-        meta = extract_meta(ds)
         info = {
             'p_id': f"B-{i+1}",
             'filename': filename,
@@ -166,7 +164,7 @@ def process_batch(files, model_key):
             'date': now.strftime("%d.%m"),
             'time': now.strftime("%H:%M")
         }
-        report_items.append({'orig_img': img_res, 'res_img': res_view, 'info': info, 'meta': meta})
+        report_items.append({'orig_img': img_res, 'res_img': res_view, 'info': info})
 
         batch_results.append({
             "ID": i+1,
