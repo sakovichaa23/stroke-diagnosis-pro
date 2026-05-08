@@ -19,13 +19,19 @@ def generate_report_universal(results_list, output_name="Diagnosis_Report.pdf", 
             has_font = False
     disclaimer = "ВНИМАНИЕ: Данный отчет сформирован системой ИИ. Он носит справочный характер и не является диагнозом."
 
+    if is_batch:
+        final_output_name = "Diagnosis_Report_Batch.pdf"
+    else:
+        final_output_name = None
+
     for idx, item in enumerate(results_list):
         orig = item['orig_img']
         res = item['res_img']
         info = item['info']
         
-        filename = info['filename'].replace('.dcm', '').replace('.png', '').replace('.jpg', '').replace('.jpeg', '')
-        output_name = f"Diagnosis_Report_{filename}.pdf"
+        if not is_batch:
+            filename = info['filename'].replace('.dcm', '').replace('.png', '').replace('.jpg', '').replace('.jpeg', '')
+            final_output_name = f"Diagnosis_Report_{filename}.pdf"
         
         pdf.add_page()
 
@@ -76,8 +82,8 @@ def generate_report_universal(results_list, output_name="Diagnosis_Report.pdf", 
             pdf.set_font("Helvetica", "", 7)
             pdf.multi_cell(0, 4, "WARNING: AI Report. This is for informational purposes only.", align="C")
 
-    pdf.output(output_name)
-    return output_name
+    pdf.output(final_output_name)
+    return final_output_name
 
 def create_analytics(df):
     plt.close('all')
