@@ -7,51 +7,23 @@ from PIL import Image
 from fpdf import FPDF
 from fpdf.enums import XPos, YPos
 from config import FONT_PATH
-from huggingface_hub import InferenceClient
-import re
 
-HF_TOKEN = os.environ.get("HF_TOKEN", None)
-
-def get_ai_recommendations(verdict, hu_info, side_ru, area_percent):
-    if not HF_TOKEN:
-        if verdict == "НОРМА":
-            return "Плановое наблюдение у невролога. Контроль артериального давления. МРТ при появлении симптомов."
-        else:
-            return f"Госпитализация в неврологическое отделение. Контроль АД каждый час. КТ-ангиография. Повторное КТ через 24 часа. Отмена антиагрегантов."
+def get_recommendations(verdict, hu_info, side_ru, area_percent):
+    """Простые рекомендации на основе правил"""
     
-    try:
-        client = InferenceClient(model="meta-llama/Meta-Llama-3-8B-Instruct", token=HF_TOKEN)
-        
-        if verdict == "НОРМА":
-            prompt = f"""Напиши 4-5 коротких предложений (до 150 слов) рекомендаций для пациента с нормальной КТ. Без вступлений. Только конкретные действия. На русском."""
-        else:
-            prompt = f"""Напиши 4-5 коротких предложений (до 150 слов) конкретных медицинских действий. Данные: {verdict}, {hu_info}, {side_ru}, площадь {area_percent}. Пиши действия: 'Госпитализировать...', 'Назначить...', 'Провести...', 'Контролировать...'. Без вступлений. На русском."""
-
-        messages = [{"role": "user", "content": prompt}]
-        response = client.chat_completion(messages=messages, max_tokens=250)
-        text = response.choices[0].message.content.strip()
-        
-        text = re.sub(r'^[\s•\-*\d+\.]+', '', text)
-        text = re.sub(r'Я рекомендую|Рекомендую|я рекомендую|Учитывая|Кроме того|Для этого|Необходимо|Следует', '', text)
-        text = ' '.join(text.split())
-        
-        if not text.endswith('.'):
-            text += '.'
-        
-        if len(text) > 500:
-            text = text[:500]
-            last_space = text.rfind(' ')
-            if last_space > 450:
-                text = text[:last_space]
-            if not text.endswith('.'):
-                text += '.'
-        
-        return text
-    except Exception as e:
-        if verdict == "НОРМА":
-            return "Плановое наблюдение у невролога. Контроль артериального давления. МРТ при появлении симптомов."
-        else:
-            return f"Госпитализация в неврологическое отделение. Контроль АД каждый час. КТ-ангиография. Повторное КТ через 24 часа. Отмена антиагрегантов."
+    if verdict == "НОРМА":
+        return "Патологических изменений головного мозга не выявлено. Рекомендуется плановое наблюдение у невролога раз в год, контроль артериального давления и уровня холестерина, поддержание здорового веса, отказ от курения, умеренная физическая активность 30 минут в день."
+    
+    # Для инсульта определяем тип
+    if "Кровь" in hu_info or "геморрагия" in hu_info:
+        stroke_type = "геморрагический"
+    else:
+        stroke_type = "ишемический"
+    
+    if stroke_type == "геморрагический":
+        return f"Выявлен геморрагический инсульт в {side_ru} площадью {area_percent}. Требуется экстренная госпитализация в нейрореанимацию. Назначить строгий постельный режим. Контролировать артериальное давление каждый час, целевые значения 130-140 мм рт.ст. Отменить антикоагулянты и антиагреганты. Провести КТ-ангиографию для исключения аневризмы. Выполнить повторное КТ через 24 часа для динамического наблюдения."
+    else:
+        return f"Выявлен ишемический инсульт в {side_ru} площадью {area_percent}. Требуется экстренная госпитализация в неврологическое отделение. Назначить строгий постельный режим на первые 48 часов. Контролировать артериальное давление каждый час. Рассмотреть системную тромболитическую терапию при отсутствии противопоказаний. Назначить аспирин 300 мг (нагрузочная доза), затем 100 мг/сут. Провести КТ-перфузию для оценки ишемической полутени. Выполнить повторное КТ через 24 часа для исключения геморрагической трансформации."
 
 def generate_report_universal(results_list, output_name="Diagnosis_Report.pdf", is_batch=False):
     pdf = FPDF()
@@ -69,7 +41,8 @@ def generate_report_universal(results_list, output_name="Diagnosis_Report.pdf", 
         res = item['res_img']
         info = item['info']
         
-        filename = info['filename'].replace('.dcm', '')
+        filename = info['filename'].replace('.dcm', '').replace('.png', '').replace('.jpg', '').replace('.jpeg', '')
+        output_name = f"Diagnosis_Report_{filename}.pdf"
         
         pdf.add_page()
 
@@ -101,7 +74,7 @@ def generate_report_universal(results_list, output_name="Diagnosis_Report.pdf", 
             pdf.ln(8)
             
             area_val = info['area'].replace('%', '')
-            recommendations = get_ai_recommendations(info['verdict_ru'], info.get('hu', 'Н/Д'), info['side_ru'], area_val)
+            recommendations = get_recommendations(info['verdict_ru'], info.get('hu', 'Н/Д'), info['side_ru'], area_val)
             
             pdf.set_font("DejaVu", "B", 12)
             pdf.set_text_color(0, 0, 255)
@@ -117,12 +90,12 @@ def generate_report_universal(results_list, output_name="Diagnosis_Report.pdf", 
         cv2.imwrite(temp_o, cv2.cvtColor(orig, cv2.COLOR_RGB2BGR))
         cv2.imwrite(temp_r, cv2.cvtColor(res, cv2.COLOR_RGB2BGR))
         
-        pdf.image(temp_o, x=15, y=pdf.get_y(), w=85)
-        pdf.image(temp_r, x=110, y=pdf.get_y(), w=85)
+        pdf.image(temp_o, x=15, y=pdf.get_y() + 15, w=85)
+        pdf.image(temp_r, x=110, y=pdf.get_y() + 15, w=85)
         os.remove(temp_o)
         os.remove(temp_r)
 
-        pdf.set_y(pdf.get_y() + 5)
+        pdf.set_y(pdf.get_y() + 10)
         if has_font:
             pdf.set_font("DejaVu", "", 7)
             pdf.set_text_color(100, 100, 100)
