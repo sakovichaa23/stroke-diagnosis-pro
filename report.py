@@ -8,34 +8,6 @@ from fpdf import FPDF
 from fpdf.enums import XPos, YPos
 from config import FONT_PATH
 
-def get_recommendations(verdict, hu_info, side_ru, area_percent):
-    
-    if verdict == "НОРМА":
-        return "Патологических изменений головного мозга не выявлено. Рекомендуется плановое наблюдение у невролога раз в год, контроль артериального давления и уровня холестерина, поддержание здорового веса, отказ от курения, умеренная физическая активность 30 минут в день."
-        
-    if "Кровь" in hu_info or "геморрагия" in hu_info:
-        stroke_type = "геморрагический"
-        if "Левое" in side_ru:
-            side_loc = "левом полушарии"
-        elif "Правое" in side_ru:
-            side_loc = "правом полушарии"
-        else:
-            side_loc = side_ru.lower()
-        
-        area_clean = area_percent.replace('%', '')
-        return f"Выявлен геморрагический инсульт в {side_loc} (площадь {area_clean}%). Требуется экстренная госпитализация в нейрореанимацию. Назначить строгий постельный режим. Контролировать артериальное давление каждый час, целевые значения 130-140 мм рт.ст. Отменить антикоагулянты и антиагреганты. Провести КТ-ангиографию для исключения аневризмы. Выполнить повторное КТ через 24 часа для динамического наблюдения."
-    else:
-        stroke_type = "ишемический"
-        if "Левое" in side_ru:
-            side_loc = "левом полушарии"
-        elif "Правое" in side_ru:
-            side_loc = "правом полушарии"
-        else:
-            side_loc = side_ru.lower()
-        
-        area_clean = area_percent.replace('%', '')
-        return f"Выявлен ишемический инсульт в {side_loc} (площадь {area_clean}%). Требуется экстренная госпитализация в неврологическое отделение. Назначить строгий постельный режим на первые 48 часов. Контролировать артериальное давление каждый час. Рассмотреть системную тромболитическую терапию при отсутствии противопоказаний. Назначить аспирин 300 мг (нагрузочная доза), затем 100 мг в сутки. Провести КТ-перфузию для оценки ишемической полутени. Выполнить повторное КТ через 24 часа для исключения геморрагической трансформации."
-
 def generate_report_universal(results_list, output_name="Diagnosis_Report.pdf", is_batch=False):
     pdf = FPDF()
     has_font = os.path.exists(FONT_PATH)
@@ -68,7 +40,7 @@ def generate_report_universal(results_list, output_name="Diagnosis_Report.pdf", 
             pdf.cell(0, 8, f"Дата: {info['date']} | Время: {info['time']}", align="C", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
             pdf.ln(5)
             pdf.set_font("DejaVu", "B", 14)
-            pdf.cell(0, 10, "1. РЕЗУЛЬТАТЫ ОБСЛЕДОВАНИЯ:", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+            pdf.cell(0, 10, "РЕЗУЛЬТАТЫ ОБСЛЕДОВАНИЯ:", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
             pdf.set_font("DejaVu", "", 12)
 
             if info['verdict_ru'] == "ИНСУЛЬТ":
@@ -82,27 +54,15 @@ def generate_report_universal(results_list, output_name="Diagnosis_Report.pdf", 
             pdf.cell(0, 8, f"Уверенность: {info['conf']}", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
             pdf.cell(0, 8, f"Модель: {info['model']}", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
 
-            pdf.ln(8)
-            
-            area_val = info['area'].replace('%', '')
-            recommendations = get_recommendations(info['verdict_ru'], info.get('hu', 'Н/Д'), info['side_ru'], area_val)
-            
-            pdf.set_font("DejaVu", "B", 12)
-            pdf.set_text_color(0, 0, 255)
-            pdf.cell(0, 10, "2. КЛИНИЧЕСКИЕ РЕКОМЕНДАЦИИ:", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
-            pdf.set_font("DejaVu", "", 11)
-            pdf.set_text_color(0, 0, 0)
-            pdf.multi_cell(0, 6, recommendations, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
-
-            pdf.ln(5)
+            pdf.ln(10)
 
         temp_o = f"o_tmp_{idx}.jpg"
         temp_r = f"r_tmp_{idx}.jpg"
         cv2.imwrite(temp_o, cv2.cvtColor(orig, cv2.COLOR_RGB2BGR))
         cv2.imwrite(temp_r, cv2.cvtColor(res, cv2.COLOR_RGB2BGR))
         
-        pdf.image(temp_o, x=15, y=pdf.get_y() + 15, w=85)
-        pdf.image(temp_r, x=110, y=pdf.get_y() + 15, w=85)
+        pdf.image(temp_o, x=15, y=pdf.get_y() + 10, w=85)
+        pdf.image(temp_r, x=110, y=pdf.get_y() + 10, w=85)
         os.remove(temp_o)
         os.remove(temp_r)
 
