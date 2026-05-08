@@ -61,8 +61,8 @@ def generate_report_universal(results_list, output_name="Diagnosis_Report.pdf", 
         cv2.imwrite(temp_o, cv2.cvtColor(orig, cv2.COLOR_RGB2BGR))
         cv2.imwrite(temp_r, cv2.cvtColor(res, cv2.COLOR_RGB2BGR))
         
-        pdf.image(temp_o, x=15, y=pdf.get_y() + 10, w=85)
-        pdf.image(temp_r, x=110, y=pdf.get_y() + 10, w=85)
+        pdf.image(temp_o, x=15, y=pdf.get_y() + 15, w=85)
+        pdf.image(temp_r, x=110, y=pdf.get_y() + 15, w=85)
         os.remove(temp_o)
         os.remove(temp_r)
 
