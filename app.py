@@ -12,6 +12,15 @@ footer { display: none !important; }
 img { object-fit: contain !important; }
 """
 
+def export_to_csv():
+    import sqlite3
+    conn = sqlite3.connect("stroke_history.db")
+    df = pd.read_sql_query("SELECT patient_id, filename, date, time, model, verdict, hemisphere, hu, area, confidence, speed FROM clinical_history ORDER BY created_at DESC", conn)
+    conn.close()
+    csv_path = "stroke_history_export.csv"
+    df.to_csv(csv_path, index=False)
+    return csv_path
+
 with gr.Blocks(fill_width=True) as demo:
     gr.Markdown("<div id='header'><h1 style='text-align:center;'>🧠 Диагностика инсульта по КТ</h1><h3 style='text-align:center;'>Интеллектуальная система анализа медицинских изображений</h3></div>")
     
@@ -175,7 +184,7 @@ with gr.Blocks(fill_width=True) as demo:
             btn_priority.click(priority_filter, [state_full_df], bhist)
             bdl_b.click(lambda: DB_DICOM_PATH, None, bdl_b)
 
-    download_csv_btn.click(lambda: "stroke_history.db", None, download_csv_btn)
+    download_csv_btn.click(export_to_csv, None, download_csv_btn)
 
 if __name__ == "__main__":
     demo.launch(ssr_mode=False, theme=gr.themes.Soft(), css=css)
