@@ -47,11 +47,19 @@
 git clone https://github.com/sakovichaa23/stroke-diagnosis-pro.git
 cd stroke-diagnosis-pro
 ```
-2. Установите зависимости:
+2. Создайте и активируйте виртуальное окружение:
+```bash
+python -m venv venv
+# Для Windows:
+venv\Scripts\activate
+# Для Mac/Linux:
+source venv/bin/activate
+```
+3. Установите зависимости:
 ```bash
 pip install -r requirements.txt
 ```
-3. Запустите программу:
+4. Запустите программу:
 ```bash
 python app.py
 ```
