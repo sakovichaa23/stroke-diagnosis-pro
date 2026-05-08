@@ -13,15 +13,4 @@ model_paths = {f"📌 {name}": name for name in allowed_models if os.path.exists
 if not model_paths:
     model_paths["❌ Модели не найдены"] = None
 
-IMPORTANT_DICOM_TAGS = {
-    "SliceThickness": "Толщина среза (мм)",
-    "PixelSpacing": "Размер пикселя (мм)",
-    "RescaleIntercept": "Перехват шкалы (HU)",
-    "RescaleSlope": "Наклон шкалы",
-    "WindowCenter": "Центр окна (яркость)",
-    "WindowWidth": "Ширина окна (контраст)",
-    "Rows": "Высота (пиксели)",
-    "Columns": "Ширина (пиксели)"
-}
-
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
