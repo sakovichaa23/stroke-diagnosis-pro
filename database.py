@@ -28,6 +28,7 @@ def init_db():
         ''')
         conn.execute('CREATE INDEX IF NOT EXISTS idx_created_at ON clinical_history(created_at DESC)')
         conn.execute('CREATE INDEX IF NOT EXISTS idx_patient_id ON clinical_history(patient_id)')
+        conn.execute('CREATE INDEX IF NOT EXISTS idx_verdict ON clinical_history(verdict)')
 
 def load_last_records(limit=MAX_HISTORY):
     with get_connection() as conn:
@@ -55,5 +56,27 @@ def get_max_patient_id():
     with get_connection() as conn:
         cur = conn.execute("SELECT COALESCE(MAX(CAST(patient_id AS INTEGER)), 0) FROM clinical_history")
         return cur.fetchone()[0]
+
+def get_filtered_history(verdict=None, hemisphere=None, min_confidence=0, limit=MAX_HISTORY):
+    query = '''
+        SELECT patient_id, filename, date, time, model, verdict, hemisphere, hu, area, confidence, speed
+        FROM clinical_history WHERE 1=1
+    '''
+    params = []
+    if verdict and verdict != "Все":
+        query += " AND verdict = ?"
+        params.append(verdict)
+    if hemisphere and hemisphere != "Все":
+        query += " AND hemisphere LIKE ?"
+        params.append(f"%{hemisphere}%")
+    if min_confidence > 0:
+        query += " AND CAST(REPLACE(confidence, '%', '') AS REAL) >= ?"
+        params.append(min_confidence)
+    query += " ORDER BY created_at DESC LIMIT ?"
+    params.append(limit)
+    
+    with get_connection() as conn:
+        cur = conn.execute(query, params)
+        return pd.DataFrame(cur.fetchall(), columns=COLUMNS)
 
 init_db()
