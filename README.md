@@ -69,7 +69,7 @@ stroke-diagnosis-pro/
 ## 🚀 Как запустить
 
 ### Онлайн-демо:
-👉 **[Открыть Stroke Diagnosis Pro на Hugging Face](https://huggingface.co/spaces/sakovichaa23/stroke-diagnosis-pro)**
+👉 **[Открыть Stroke Diagnosis Pro на Hugging Face](https://asakovic75-stroke-diagnosis-pro.hf.space/)**
 
 ### Локально:
 1. Клонируйте репозиторий:
