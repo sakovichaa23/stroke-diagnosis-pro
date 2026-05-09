@@ -21,6 +21,83 @@ def export_to_csv():
     df.to_csv(csv_path, index=False)
     return csv_path
 
+def apply_filters(verdict, side, order):
+    df = get_history_dataframe()
+    if df.empty:
+        return df
+    if verdict != "Все":
+        df = df[df['Вердикт'] == verdict]
+    if side != "Все":
+        df = df[df['Полушарие'].str.contains(side, na=False)]
+    
+    df = df.copy()
+    
+    if "Площадь" in order:
+        df['Площадь_число'] = df['Площадь'].str.replace('%', '').astype(float)
+        ascending = "↑" in order
+        df = df.sort_values(by='Площадь_число', ascending=ascending)
+        df = df.drop(columns=['Площадь_число'])
+    elif "Достоверность" in order:
+        df['Достоверность_число'] = df['Достоверность'].str.replace('%', '').astype(float)
+        ascending = "↑" in order
+        df = df.sort_values(by='Достоверность_число', ascending=ascending)
+        df = df.drop(columns=['Достоверность_число'])
+    elif "Скорость" in order:
+        df['Скорость_число'] = df['Скорость'].str.replace(' мс', '').astype(float)
+        ascending = "↑" in order
+        df = df.sort_values(by='Скорость_число', ascending=ascending)
+        df = df.drop(columns=['Скорость_число'])
+    else:
+        ascending = "↑" in order
+        df = df.sort_values(by='Дата', ascending=ascending)
+    return df
+
+def reset_filters():
+    return get_history_dataframe()
+
+def apply_batch_filters(df, verdict, side, order):
+    if not isinstance(df, pd.DataFrame) or df.empty:
+        return pd.DataFrame()
+    if verdict != "Все":
+        df = df[df['Вердикт'] == verdict]
+    if side != "Все":
+        df = df[df['Полушарие'].str.contains(side, na=False)]
+    
+    df = df.copy()
+    
+    if "Площадь" in order:
+        df['Площадь_число'] = df['Площадь'].str.replace('%', '').astype(float)
+        ascending = "↑" in order
+        df = df.sort_values(by='Площадь_число', ascending=ascending)
+        df = df.drop(columns=['Площадь_число'])
+    elif "Достоверность" in order:
+        df['Достоверность_число'] = df['Достоверность'].str.replace('%', '').astype(float)
+        ascending = "↑" in order
+        df = df.sort_values(by='Достоверность_число', ascending=ascending)
+        df = df.drop(columns=['Достоверность_число'])
+    elif "Скорость" in order:
+        df['Скорость_число'] = df['Скорость'].str.replace(' мс', '').astype(float)
+        ascending = "↑" in order
+        df = df.sort_values(by='Скорость_число', ascending=ascending)
+        df = df.drop(columns=['Скорость_число'])
+    else:
+        ascending = "↑" in order
+        df = df.sort_values(by='Дата', ascending=ascending)
+    return df
+
+def reset_batch_filters(df):
+    return df
+
+def priority_filter(df):
+    if not isinstance(df, pd.DataFrame) or df.empty:
+        return pd.DataFrame()
+    if 'Инсульт' not in df['Вердикт'].values:
+        return pd.DataFrame(columns=df.columns)
+    filtered = df[df['Вердикт'] == 'Инсульт'].copy()
+    if 'Площадь' in filtered.columns:
+        filtered = filtered.sort_values(by='Площадь', key=lambda x: x.str.rstrip('%').astype(float), ascending=False)
+    return filtered
+
 with gr.Blocks(fill_width=True) as demo:
     gr.Markdown("<div id='header'><h1 style='text-align:center;'>🧠 Диагностика инсульта по КТ</h1><h3 style='text-align:center;'>Интеллектуальная система анализа медицинских изображений</h3></div>")
     
@@ -44,17 +121,16 @@ with gr.Blocks(fill_width=True) as demo:
                 
                 gr.Markdown("<br>")
                 gr.Markdown("### 🔍 ФИЛЬТРАЦИЯ")
+                
                 with gr.Row():
-                    filter_verdict = gr.Radio(choices=["Все", "Инсульт", "Норма"], value="Все", label="По вердикту")
-                    filter_side = gr.Dropdown(choices=["Все", "Левое", "Правое", "Не выявлено"], value="Все", label="По полушарию")
+                    filter_verdict = gr.Dropdown(choices=["Все", "Инсульт", "Норма"], value="Все", label="Вердикт")
+                    filter_side = gr.Dropdown(choices=["Все", "Левое", "Правое", "Не выявлено"], value="Все", label="Полушарие")
                     filter_order = gr.Dropdown(choices=[
-                        "По дате (сначала новые)", 
-                        "По дате (сначала старые)",
-                        "По площади (от большей к меньшей)", 
-                        "По площади (от меньшей к большей)",
-                        "По достоверности (от большей к меньшей)", 
-                        "По достоверности (от меньшей к большей)"
-                    ], value="По дате (сначала новые)", label="Сортировка")
+                        "📅 Дата ↓", "📅 Дата ↑",
+                        "📐 Площадь ↓", "📐 Площадь ↑",
+                        "🎯 Достоверность ↓", "🎯 Достоверность ↑",
+                        "⚡ Скорость ↓", "⚡ Скорость ↑"
+                    ], value="📅 Дата ↓", label="Сортировка")
                 
                 with gr.Row():
                     filter_btn = gr.Button("🔍 ПРИМЕНИТЬ ФИЛЬТРЫ", variant="secondary")
@@ -66,38 +142,8 @@ with gr.Blocks(fill_width=True) as demo:
                 with gr.Row():
                     download_csv_btn = gr.DownloadButton("📥 СКАЧАТЬ CSV")
             
-            def apply_filters(verdict, side, order):
-                df = get_history_dataframe()
-                if df.empty:
-                    return df
-                if verdict != "Все":
-                    df = df[df['Вердикт'] == verdict]
-                if side != "Все":
-                    df = df[df['Полушарие'].str.contains(side, na=False)]
-                
-                df = df.copy()
-                
-                if "Площадь" in order:
-                    df['Площадь_число'] = df['Площадь'].str.replace('%', '').astype(float)
-                    ascending = "меньшей" in order
-                    df = df.sort_values(by='Площадь_число', ascending=ascending)
-                    df = df.drop(columns=['Площадь_число'])
-                elif "Достоверность" in order:
-                    df['Достоверность_число'] = df['Достоверность'].str.replace('%', '').astype(float)
-                    ascending = "меньшей" in order
-                    df = df.sort_values(by='Достоверность_число', ascending=ascending)
-                    df = df.drop(columns=['Достоверность_число'])
-                else:
-                    ascending = "старые" in order
-                    df = df.sort_values(by='Дата', ascending=ascending)
-                return df
-            
-            def reset_filters():
-                return get_history_dataframe()
-            
             filter_btn.click(apply_filters, [filter_verdict, filter_side, filter_order], history_table)
             reset_filter_btn.click(reset_filters, None, history_table)
-            
             btn.click(predict_stroke, [input_f, model_selector], [o_res, o_orig, status_out, details_out, history_table, pdf_file])
             clr.add([input_f, o_res, o_orig, status_out, details_out, history_table, pdf_file])
 
@@ -105,27 +151,29 @@ with gr.Blocks(fill_width=True) as demo:
             with gr.Column():
                 bm_sel = gr.Dropdown(choices=list(model_paths.keys()), value=list(model_paths.keys())[0], label="🔧 ВЫБЕРИТЕ НЕЙРОСЕТЕВУЮ МОДЕЛЬ")
                 binp = gr.File(label="📸 ЗАГРУЗИТЕ ПАКЕТ DICOM ФАЙЛОВ", file_count="multiple", file_types=[".dcm"])
+                
                 with gr.Row():
                     bbtn = gr.Button("🔍 ЗАПУСТИТЬ АНАЛИЗ", variant="primary", size="lg")
                     bclr = gr.ClearButton(value="🗑 ОЧИСТИТЬ ЭКРАН", size="lg")
+                
                 bst_out, bdet_out = gr.HTML(), gr.HTML()
+                
                 gr.Markdown("### 📊 СТАТИСТИКА ПОТОКА")
                 bres = gr.Image(show_label=False)
                 b_pdf_file = gr.File(label="📄 МЕДИЦИНСКИЙ ОТЧЕТ (BATCH)")
                 
                 gr.Markdown("<br>")
                 gr.Markdown("### 🔍 ФИЛЬТРАЦИЯ")
+                
                 with gr.Row():
-                    b_filter_verdict = gr.Radio(choices=["Все", "Инсульт", "Норма"], value="Все", label="По вердикту")
-                    b_filter_side = gr.Dropdown(choices=["Все", "Левое", "Правое", "Не выявлено"], value="Все", label="По полушарию")
+                    b_filter_verdict = gr.Dropdown(choices=["Все", "Инсульт", "Норма"], value="Все", label="Вердикт")
+                    b_filter_side = gr.Dropdown(choices=["Все", "Левое", "Правое", "Не выявлено"], value="Все", label="Полушарие")
                     b_filter_order = gr.Dropdown(choices=[
-                        "По дате (сначала новые)", 
-                        "По дате (сначала старые)",
-                        "По площади (от большей к меньшей)", 
-                        "По площади (от меньшей к большей)",
-                        "По достоверности (от большей к меньшей)", 
-                        "По достоверности (от меньшей к большей)"
-                    ], value="По дате (сначала новые)", label="Сортировка")
+                        "📅 Дата ↓", "📅 Дата ↑",
+                        "📐 Площадь ↓", "📐 Площадь ↑",
+                        "🎯 Достоверность ↓", "🎯 Достоверность ↑",
+                        "⚡ Скорость ↓", "⚡ Скорость ↑"
+                    ], value="📅 Дата ↓", label="Сортировка")
                 
                 with gr.Row():
                     b_filter_btn = gr.Button("🔍 ПРИМЕНИТЬ ФИЛЬТРЫ", variant="secondary")
@@ -138,47 +186,8 @@ with gr.Blocks(fill_width=True) as demo:
                 with gr.Row():
                     bdl_b = gr.DownloadButton("📥 СКАЧАТЬ CSV")
             
-            def apply_batch_filters(df, verdict, side, order):
-                if not isinstance(df, pd.DataFrame) or df.empty:
-                    return pd.DataFrame()
-                if verdict != "Все":
-                    df = df[df['Вердикт'] == verdict]
-                if side != "Все":
-                    df = df[df['Полушарие'].str.contains(side, na=False)]
-                
-                df = df.copy()
-                
-                if "Площадь" in order:
-                    df['Площадь_число'] = df['Площадь'].str.replace('%', '').astype(float)
-                    ascending = "меньшей" in order
-                    df = df.sort_values(by='Площадь_число', ascending=ascending)
-                    df = df.drop(columns=['Площадь_число'])
-                elif "Достоверность" in order:
-                    df['Достоверность_число'] = df['Достоверность'].str.replace('%', '').astype(float)
-                    ascending = "меньшей" in order
-                    df = df.sort_values(by='Достоверность_число', ascending=ascending)
-                    df = df.drop(columns=['Достоверность_число'])
-                else:
-                    ascending = "старые" in order
-                    df = df.sort_values(by='Дата', ascending=ascending)
-                return df
-            
-            def reset_batch_filters(df):
-                return df
-            
-            def priority_filter(df):
-                if not isinstance(df, pd.DataFrame) or df.empty:
-                    return pd.DataFrame()
-                if 'Инсульт' not in df['Вердикт'].values:
-                    return pd.DataFrame(columns=df.columns)
-                filtered = df[df['Вердикт'] == 'Инсульт'].copy()
-                if 'Площадь' in filtered.columns:
-                    filtered = filtered.sort_values(by='Площадь', key=lambda x: x.str.rstrip('%').astype(float), ascending=False)
-                return filtered
-            
             bbtn.click(process_batch, [binp, bm_sel], [bres, bst_out, bdet_out, bhist, b_pdf_file, state_full_df])
             bclr.add([binp, bres, bst_out, bdet_out, bhist, b_pdf_file])
-            
             b_filter_btn.click(apply_batch_filters, [state_full_df, b_filter_verdict, b_filter_side, b_filter_order], bhist)
             b_reset_filter_btn.click(reset_batch_filters, [state_full_df], bhist)
             btn_priority.click(priority_filter, [state_full_df], bhist)
