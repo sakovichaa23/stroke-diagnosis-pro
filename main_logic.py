@@ -162,7 +162,7 @@ def process_batch(files, model_key):
             'speed': file_duration,
             'conf': confidence,
             'date': now.strftime("%d.%m"),
-            'time': now.strftime("%H:%M")
+            'time': now.strftime("%H:%M:%S")
         }
         report_items.append({'orig_img': img_res, 'res_img': res_view, 'info': info})
 
