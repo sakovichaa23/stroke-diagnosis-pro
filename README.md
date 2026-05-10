@@ -2,11 +2,11 @@
 
 ## 👤 Данные об авторе
 
-**ФИО:** Сакович Анастасия Александровна  
-**Логин:** sakovich_aa_23
-**Курс / семестр:** 3 курс / 6 семестр
-**Специальность:** Искусственный интеллект
-**Вид проекта:** Курсовая работа
+* **ФИО:** Сакович Анастасия Александровна  
+* **Логин:** sakovich_aa_23
+* **Курс / семестр:** 3 курс / 6 семестр
+* **Специальность:** Искусственный интеллект
+* **Вид проекта:** Курсовая работа
 
 [![Hugging Face Spaces](https://img.shields.io/badge/%F0%9F%A4%97%20Демо-Hugging%20Face-yellow)](https://huggingface.co/spaces/sakovichaa23/stroke-diagnosis-pro)
 [![Python](https://img.shields.io/badge/Python-3.9+-blue.svg)](https://www.python.org/)
