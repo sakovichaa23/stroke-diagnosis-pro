@@ -71,7 +71,7 @@
 
 ### Ссылка на датасет
 
-[![Kaggle](https://img.shields.io/badge/Kaggle-Brain%20Stroke%20CT%20Dataset-20BEFF?logo=kaggle)](https://www.kaggle.com/datasets/vbookshelf/computed-tomography-ct-images)
+[![Kaggle](https://www.kaggle.com/datasets/ozguraslank/brain-stroke-ct-dataset)
 
 ---
 
