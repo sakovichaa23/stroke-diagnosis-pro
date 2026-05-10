@@ -13,7 +13,6 @@
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.0+-red.svg)](https://pytorch.org/)
 [![Gradio](https://img.shields.io/badge/Gradio-4.0+-orange.svg)](https://gradio.app/)
 [![DICOM](https://img.shields.io/badge/DICOM-pydicom-blueviolet)](https://pydicom.github.io/)
-[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 ## 📋 О проекте
 
@@ -71,7 +70,7 @@
 
 ### Ссылка на датасет
 
-[![Kaggle](https://www.kaggle.com/datasets/ozguraslank/brain-stroke-ct-dataset)
+[![Kaggle](https://img.shields.io/badge/Kaggle-Brain%20Stroke%20CT%20Dataset-20BEFF?logo=kaggle)](https://www.kaggle.com/datasets/ozguraslank/brain-stroke-ct-dataset)
 
 ---
 
