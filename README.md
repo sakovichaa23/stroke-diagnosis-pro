@@ -50,9 +50,9 @@
 
 stroke-diagnosis-pro/
 
-app.py                      # Основной файл запуска (интерфейс Gradio)
-main_logic.py               # Клинический и пакетный режимы обработки
-config.py                   # Константы и настройки
+**app.py**                     # Основной файл запуска (интерфейс Gradio)
+**main_logic.py**              # Клинический и пакетный режимы обработки
+**config.py**                  # Константы и настройки
 database.py                 # Работа с SQLite (сохранение истории)
 segmentation.py             # Нейросеть U‑Net + EfficientNet-B4
 dicom_preprocessing.py      # Чтение DICOM и извлечение метаданных
