@@ -72,8 +72,6 @@
 
 👉 **[Открыть Brain Stroke CT Dataset на Kaggle](https://www.kaggle.com/datasets/ozguraslank/brain-stroke-ct-dataset)**
 
----
-
 ## 🧪 Тестирование системы
 
 Для тестирования системы можно использовать **тот же датасет Brain Stroke CT Dataset**. В датасете присутствует папка `External_Test/`, содержащая изображения для проверки работы модели.
