@@ -48,19 +48,17 @@
 
 ## 📁 Структура проекта
 
-stroke-diagnosis-pro/
-
-**app.py**                     # Основной файл запуска (интерфейс Gradio)
-**main_logic.py**              # Клинический и пакетный режимы обработки
-**config.py**                  # Константы и настройки
-database.py                 # Работа с SQLite (сохранение истории)
-segmentation.py             # Нейросеть U‑Net + EfficientNet-B4
-dicom_preprocessing.py      # Чтение DICOM и извлечение метаданных
-diagnosis.py                # Анализ плотности HU, артериальные бассейны
-report.py                   # Генерация PDF-отчётов и графиков
-stroke_model.pth            # Веса обученной модели
-requirements.txt            # Список необходимых библиотек
-README.md                   # Документация
+* **app.py** — Основной файл запуска (интерфейс Gradio)
+* **main_logic.py** — Клинический и пакетный режимы обработки
+* **config.py** — Константы и настройки
+* **database.py** — Работа с SQLite (сохранение истории)
+* **segmentation.py** — Нейросеть U‑Net + EfficientNet-B4
+* **dicom_preprocessing.py** — Чтение DICOM и извлечение метаданных
+* **diagnosis.py** — Анализ плотности HU, артериальные бассейны
+* **report.py** — Генерация PDF-отчётов и графиков
+* **stroke_model.pth** — Веса обученной модели
+* **requirements.txt** — Список необходимых библиотек
+* **README.md** — Документация
 
 ## 🚀 Как запустить
 
